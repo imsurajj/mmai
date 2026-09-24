@@ -1,63 +1,91 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
+import { useColor } from '@/hooks/useColor';
+import { LogOut, ShieldCheck, User } from 'lucide-react-native';
+import React from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function HomeScreen() {
+  const bg = useColor('background');
+  const card = useColor('card');
+  const text = useColor('text');
+  const muted = useColor('textMuted');
+  const primary = useColor('primary');
+  const border = useColor('border');
+  const insets = useSafeAreaInsets();
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <View
+      style={[
+        styles.container,
+        {
+          backgroundColor: bg,
+          paddingTop: insets.top,
+          paddingBottom: insets.bottom,
+        },
+      ]}
+    >
+      <View style={styles.content}>
+        {/* Status Icon */}
+        <View
+          style={[
+            styles.avatarWrap,
+            { backgroundColor: primary + '18', borderColor: primary + '30' },
+          ]}
+        >
+          <ShieldCheck size={40} color={primary} />
+        </View>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        {/* Access Granted Badge */}
+        <View
+          style={[
+            styles.statusBadge,
+            { backgroundColor: primary + '15', borderColor: primary + '30' },
+          ]}
+        >
+          <View style={[styles.statusDot, { backgroundColor: primary }]} />
+          <Text style={[styles.statusText, { color: primary }]}>
+            Access Granted • Logged In
+          </Text>
+        </View>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
-          />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
+        <Text style={[styles.title, { color: text }]}>Welcome to MMAI</Text>
+        <Text style={[styles.subtitle, { color: muted }]}>
+          Your workspace is active and ready.
+        </Text>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+        {/* User Card */}
+        <View
+          style={[
+            styles.userCard,
+            { backgroundColor: card, borderColor: border },
+          ]}
+        >
+          <View
+            style={[styles.userIconCircle, { backgroundColor: primary + '20' }]}
+          >
+            <User size={20} color={primary} />
+          </View>
+          <View style={styles.userInfo}>
+            <Text style={[styles.userName, { color: text }]}>
+              Authenticated User
+            </Text>
+            <Text style={[styles.userRole, { color: muted }]}>Session Active</Text>
+          </View>
+        </View>
+
+        {/* Logout Button */}
+        <Button
+          variant="default"
+          size="lg"
+          icon={LogOut}
+          style={styles.logoutButton}
+        >
+          Log Out
+        </Button>
+      </View>
+    </View>
   );
 }
 
@@ -65,34 +93,87 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
     alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
+    paddingHorizontal: 24,
   },
-  heroSection: {
+  content: {
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+  },
+  avatarWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
+    marginBottom: 20,
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    marginBottom: 16,
+    gap: 8,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
   },
   title: {
+    fontSize: 26,
+    fontWeight: '800',
     textAlign: 'center',
+    marginBottom: 8,
+    letterSpacing: -0.5,
   },
-  code: {
-    textTransform: 'uppercase',
+  subtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    marginBottom: 28,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  userCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 28,
+    gap: 14,
+  },
+  userIconCircle: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  userRole: {
+    fontSize: 12,
+    marginTop: 2,
+  },
+  logoutButton: {
+    width: '100%',
+    height: 54,
+    borderRadius: 27,
   },
 });

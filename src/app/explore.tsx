@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: Spacing.four,
     paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
+    borderRadius: 0,
     justifyContent: 'center',
     gap: Spacing.one,
     alignItems: 'center',
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   imageTutorial: {
     width: '100%',
     aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
+    borderRadius: 0,
     marginTop: Spacing.two,
   },
   imageReact: {
