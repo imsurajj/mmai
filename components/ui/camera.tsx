@@ -1045,4 +1045,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export Camera;
+export default Camera;

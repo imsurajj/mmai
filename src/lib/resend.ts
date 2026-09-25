@@ -7,7 +7,7 @@ const RESEND_API_KEY =
   process.env.EXPO_PUBLIC_RESEND_API_KEY ||
   process.env.NEXT_PUBLIC_RESEND_API_KEY ||
   process.env.RESEND_API_KEY ||
-  're_KfX5m5M3_KLkhnN2PvqSrEuEuecybef8z';
+  '';
 
 const FROM_EMAIL =
   process.env.EXPO_PUBLIC_RESEND_FROM_EMAIL ||
@@ -29,9 +29,9 @@ export async function sendEmail({ to, subject, html, text, from = FROM_EMAIL }: 
     process.env.RESEND_API_KEY ||
     RESEND_API_KEY;
 
-  if (!apiKey || apiKey.includes('your_resend_api_key')) {
-    console.warn(
-      '[Resend Warning] RESEND_API_KEY is not configured in .env. Email was simulated.',
+  if (!apiKey || apiKey.includes('your_') || apiKey.includes('_here')) {
+    console.log(
+      '[Resend Simulated Mode] Email simulated because RESEND_API_KEY is not configured in .env:',
       { to, subject }
     );
     return {

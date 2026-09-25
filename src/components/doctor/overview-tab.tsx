@@ -29,7 +29,7 @@ export function OverviewTab({
   const primary = useColor('primary'); // #748B75
   const border = useColor('border');
 
-  const activeReminders = reminders.filter((r) => r.status === 'pending');
+  const activeReminders = reminders.filter((r) => r.status === 'active');
 
   return (
     <Animated.View entering={FadeInDown.duration(240)} style={styles.sectionWrap}>

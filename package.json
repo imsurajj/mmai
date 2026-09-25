@@ -53,6 +53,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "test:keys": "node test-keys.mjs",
     "lint": "expo lint"
   },
   "private": true

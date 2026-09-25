@@ -9,6 +9,7 @@ import {
   LogOut,
   ChevronRight,
   Heart,
+  Sparkles,
 } from 'lucide-react-native';
 import { useColor } from '@/hooks/useColor';
 import { useModeToggle } from '@/hooks/useModeToggle';
@@ -73,6 +74,21 @@ export function PatientSettingsTab({
           </View>
           <View style={[styles.statusPill, { backgroundColor: isDark ? '#1C261E' : '#EAF2EA', borderColor: '#748B75' }]}>
             <Text style={[styles.statusPillText, { color: '#748B75' }]}>Active</Text>
+          </View>
+        </View>
+
+        <View style={styles.rowItem}>
+          <View style={[styles.iconCircle, { backgroundColor: isDark ? '#262F29' : '#F1F5F2' }]}>
+            <Sparkles size={18} color="#748B75" strokeWidth={2.2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.rowLabel, { color: text }]}>Cognitive Voice Assistant</Text>
+            <Text style={[styles.rowSub, { color: muted }]}>
+              ElevenLabs + Gemini Dynamic Model
+            </Text>
+          </View>
+          <View style={[styles.statusPill, { backgroundColor: isDark ? '#1C261E' : '#EAF2EA', borderColor: '#748B75' }]}>
+            <Text style={[styles.statusPillText, { color: '#748B75' }]}>Ready</Text>
           </View>
         </View>
       </View>

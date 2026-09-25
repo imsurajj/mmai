@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, ScrollView, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useColor } from '@/hooks/useColor';
-import { CurrentSessionUser } from '@/lib/supabase';
+import { CurrentSessionUser, safeStorage } from '@/lib/supabase';
 import { CareReminder, TimelineEvent, PersonalBaseline } from '@/lib/caregiver-service';
 import { PatientTab } from './patient-types';
 import { PatientTopBar } from './patient-top-bar';
@@ -11,6 +11,8 @@ import { PatientHomeTab } from './patient-home-tab';
 import { PatientTimelineTab } from './patient-timeline-tab';
 import { PatientRemindersTab } from './patient-reminders-tab';
 import { PatientSettingsTab } from './patient-settings-tab';
+import { PatientGeminiAssistant } from './patient-gemini-assistant';
+import { PatientDailyCheck, DAILY_CHECK_STORAGE_KEY } from './patient-daily-check';
 
 type PatientScreenProps = {
   user: CurrentSessionUser | null;
@@ -23,7 +25,7 @@ type PatientScreenProps = {
 
 export function PatientScreen({
   user,
-  baseline,
+  baseline: initialBaseline,
   reminders,
   timelineEvents,
   onToggleReminder,
@@ -32,11 +34,65 @@ export function PatientScreen({
   const bg = useColor('background');
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<PatientTab>('home');
+  const [geminiAssistantVisible, setGeminiAssistantVisible] = useState(false);
+
+  // Daily check-in gate
+  const [checkInDone, setCheckInDone] = useState(false);
+  const [checkInLoading, setCheckInLoading] = useState(true);
+  const [baseline, setBaseline] = useState<PersonalBaseline | null>(initialBaseline);
+
+  // On mount: see if today's check-in was already completed
+  useEffect(() => {
+    (async () => {
+      try {
+        const stored = await safeStorage.getItem(DAILY_CHECK_STORAGE_KEY);
+        const today = new Date().toDateString();
+        if (stored === today) {
+          setCheckInDone(true);
+        }
+      } catch {
+        // If storage fails, just skip check-in and show home
+        setCheckInDone(true);
+      } finally {
+        setCheckInLoading(false);
+      }
+    })();
+  }, []);
+
+  // Keep local baseline in sync if parent prop changes
+  useEffect(() => {
+    if (initialBaseline) setBaseline(initialBaseline);
+  }, [initialBaseline]);
+
+  const handleCheckInComplete = (updatedBaseline: PersonalBaseline) => {
+    setBaseline(updatedBaseline);
+    setCheckInDone(true);
+  };
+
+  // While checking storage, render nothing (brief flash prevention)
+  if (checkInLoading) return null;
+
+  // Show full-screen daily check-in before the main home screen
+  if (!checkInDone) {
+    return (
+      <PatientDailyCheck
+        user={user}
+        baseline={baseline}
+        timelineEvents={timelineEvents}
+        reminders={reminders}
+        onComplete={handleCheckInComplete}
+      />
+    );
+  }
 
   return (
     <View style={[styles.container, { backgroundColor: bg }]}>
       {/* Top Header */}
-      <PatientTopBar user={user} insetsTop={insets.top} />
+      <PatientTopBar
+        user={user}
+        insetsTop={insets.top}
+        onOpenGeminiAssistant={() => setGeminiAssistantVisible(true)}
+      />
 
       {/* Main View Area */}
       <ScrollView
@@ -53,6 +109,7 @@ export function PatientScreen({
             onToggleReminder={onToggleReminder}
             onNavigateToTimeline={() => setActiveTab('timeline')}
             onNavigateToReminders={() => setActiveTab('reminders')}
+            onOpenGeminiAssistant={() => setGeminiAssistantVisible(true)}
           />
         )}
 
@@ -80,6 +137,16 @@ export function PatientScreen({
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         insetsBottom={insets.bottom}
+      />
+
+      {/* Gemini Capacity-Adaptive Voice Assistant */}
+      <PatientGeminiAssistant
+        visible={geminiAssistantVisible}
+        onClose={() => setGeminiAssistantVisible(false)}
+        user={user}
+        baseline={baseline}
+        timelineEvents={timelineEvents}
+        reminders={reminders}
       />
     </View>
   );

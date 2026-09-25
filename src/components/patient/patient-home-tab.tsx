@@ -6,6 +6,8 @@ import { useColor } from '@/hooks/useColor';
 import { CareReminder, TimelineEvent, PersonalBaseline } from '@/lib/caregiver-service';
 import { CurrentSessionUser } from '@/lib/supabase';
 
+import { PatientReportVerification } from './patient-report-verification';
+
 type PatientHomeTabProps = {
   user: CurrentSessionUser | null;
   baseline: PersonalBaseline | null;
@@ -14,6 +16,7 @@ type PatientHomeTabProps = {
   onToggleReminder: (reminder: CareReminder) => void;
   onNavigateToTimeline: () => void;
   onNavigateToReminders: () => void;
+  onOpenGeminiAssistant?: () => void;
 };
 
 export function PatientHomeTab({
@@ -24,6 +27,7 @@ export function PatientHomeTab({
   onToggleReminder,
   onNavigateToTimeline,
   onNavigateToReminders,
+  onOpenGeminiAssistant,
 }: PatientHomeTabProps) {
   const text = useColor('text');
   const muted = useColor('textMuted');
@@ -62,6 +66,12 @@ export function PatientHomeTab({
           </Text>
         </View>
       </View>
+
+      {/* Caregiver Report Verification */}
+      <PatientReportVerification
+        user={user}
+        baseline={baseline}
+      />
 
       {/* Section 1: Today's Routine Prompts */}
       <View style={[styles.sectionBlock, { borderBottomColor: border }]}>

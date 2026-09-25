@@ -43,3 +43,6 @@ example
 # generated native folders
 /ios
 /android
+
+# local testing scripts
+test-keys.mjs

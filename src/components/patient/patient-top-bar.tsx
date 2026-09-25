@@ -1,14 +1,15 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Heart, ShieldCheck } from 'lucide-react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { Heart, ShieldCheck, Sparkles } from 'lucide-react-native';
 import { CurrentSessionUser } from '@/lib/supabase';
 
 type PatientTopBarProps = {
   user: CurrentSessionUser | null;
   insetsTop: number;
+  onOpenGeminiAssistant?: () => void;
 };
 
-export function PatientTopBar({ user, insetsTop }: PatientTopBarProps) {
+export function PatientTopBar({ user, insetsTop, onOpenGeminiAssistant }: PatientTopBarProps) {
   return (
     <View
       style={[
@@ -35,10 +36,13 @@ export function PatientTopBar({ user, insetsTop }: PatientTopBarProps) {
         </View>
       </View>
 
-      <View style={styles.statusBadge}>
-        <ShieldCheck size={13} color="#FFFFFF" />
-        <Text style={styles.statusBadgeText}>Sync Active</Text>
-      </View>
+      <Pressable
+        onPress={onOpenGeminiAssistant}
+        style={({ pressed }) => [styles.statusBadge, pressed && { opacity: 0.8 }]}
+      >
+        <Sparkles size={13} color="#FFFFFF" />
+        <Text style={styles.statusBadgeText}>AI Assistant</Text>
+      </Pressable>
     </View>
   );
 }

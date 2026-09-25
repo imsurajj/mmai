@@ -99,7 +99,7 @@ export function SearchBar({
     color: textColor,
     marginHorizontal: 8,
     ...(Platform.OS === 'web'
-      ? ({ outlineStyle: 'none', outlineWidth: 0 } as TextStyle)
+      ? ({ outlineStyle: 'none', outlineWidth: 0 } as unknown as TextStyle)
       : null),
   };
 

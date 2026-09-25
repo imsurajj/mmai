@@ -3,20 +3,25 @@ import { createClient } from '@supabase/supabase-js';
 import { Platform } from 'react-native';
 import { sendPatientAccessKeyEmail, sendPatientLoginOtpEmail } from './resend';
 
-const supabaseUrl =
-  process.env.EXPO_PUBLIC_SUPABASE_URL ||
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  'https://akguioteugcnfokdwlka.supabase.co';
+function isValidConfig(val: string | undefined): boolean {
+  return Boolean(val && !val.includes('your-project') && !val.includes('your_') && !val.includes('_here'));
+}
 
-const supabaseAnonKey =
+const envUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseUrl = isValidConfig(envUrl) ? envUrl! : 'https://akguioteugcnfokdwlka.supabase.co';
+
+const envKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZ3Vpb3RldWdjbmZva2R3bGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyOTcxMjgsImV4cCI6MjEwNTg3MzEyOH0.33swJrI9xaqSST77AMeJRJ81B06DNyets7_km0zQ9SI';
+  process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+
+const supabaseAnonKey = isValidConfig(envKey)
+  ? envKey!
+  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZ3Vpb3RldWdjbmZva2R3bGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyOTcxMjgsImV4cCI6MjEwNTg3MzEyOH0.33swJrI9xaqSST77AMeJRJ81B06DNyets7_km0zQ9SI';
 
 // Secure storage adapter compatible with React Native (AsyncStorage) and Web
-const safeStorage = {
+export const safeStorage = {
   getItem: async (key: string): Promise<string | null> => {
     try {
       if (Platform.OS === 'web' && typeof window !== 'undefined' && window.localStorage) {
