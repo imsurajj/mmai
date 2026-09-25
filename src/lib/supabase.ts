@@ -8,7 +8,7 @@ function isValidConfig(val: string | undefined): boolean {
 }
 
 const envUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseUrl = isValidConfig(envUrl) ? envUrl! : 'https://akguioteugcnfokdwlka.supabase.co';
+const supabaseUrl = isValidConfig(envUrl) ? envUrl! : '';
 
 const envKey =
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ||
@@ -16,9 +16,7 @@ const envKey =
   process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
   process.env.EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
-const supabaseAnonKey = isValidConfig(envKey)
-  ? envKey!
-  : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrZ3Vpb3RldWdjbmZva2R3bGthIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAyOTcxMjgsImV4cCI6MjEwNTg3MzEyOH0.33swJrI9xaqSST77AMeJRJ81B06DNyets7_km0zQ9SI';
+const supabaseAnonKey = isValidConfig(envKey) ? envKey! : '';
 
 // Secure storage adapter compatible with React Native (AsyncStorage) and Web
 export const safeStorage = {
