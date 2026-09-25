@@ -3293,6 +3293,20 @@ const styles = StyleSheet.create({
   switchThumbActive: {
     alignSelf: 'flex-end',
   },
+  toggleRowRef: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
+  toggleTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  toggleSub: {
+    fontSize: 13,
+    marginTop: 2,
+  },
   /* Preserved for Notification History & Generic Cards */
   settingsCard: {
     padding: 16,
