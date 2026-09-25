@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { AppOnboarding } from '@/components/app-onboarding';
@@ -10,6 +10,8 @@ import { SplashScreenView } from '@/components/splash-screen';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { ModeProvider } from '@/providers/mode-provider';
 import { Colors } from '@/theme/colors';
+import { ToastProvider } from '@/components/ui/toast';
+import { getActiveSessionUser } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -20,6 +22,16 @@ function AppShell() {
   const [showSplash, setShowSplash] = useState(true);
   const [step, setStep] = useState<AppStep>('onboarding');
   const palette = Colors[scheme];
+
+  useEffect(() => {
+    getActiveSessionUser()
+      .then((user) => {
+        if (user) {
+          setStep('app');
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const navigationTheme = useMemo(() => {
     const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
@@ -54,8 +66,10 @@ function AppShell() {
 export default function TabLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <ModeProvider>
-        <AppShell />
+      <ModeProvider defaultMode="light">
+        <ToastProvider>
+          <AppShell />
+        </ToastProvider>
       </ModeProvider>
     </GestureHandlerRootView>
   );

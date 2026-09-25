@@ -1,141 +1,145 @@
+/**
+ * Minimal & Clean White Theme with Green Accents:
+ * - Base background & card fill: Pure White (#FFFFFF)
+ * - Accent color for buttons, links, active tabs & icons: Dusty Olive Green (#748B75)
+ * - Soft sage secondary touch: #92AD94
+ * - Crisp text & neutral hairlines (#E5E7EB)
+ */
+
 const lightColors = {
-  // Base colors — Anthropic ivory / slate
-  background: '#FAF9F5',
-  foreground: '#141413',
+  // Base colors — Pure White canvas
+  background: '#FFFFFF',
+  foreground: '#111827',
 
-  // Card colors
-  card: '#F0EEE6',
-  cardForeground: '#141413',
+  // Card & Popover colors — White fill (no heavy green tints)
+  card: '#FFFFFF',
+  cardForeground: '#111827',
+  popover: '#FFFFFF',
+  popoverForeground: '#111827',
 
-  // Popover colors
-  popover: '#F0EEE6',
-  popoverForeground: '#141413',
+  // Primary accent — Dusty Olive Green (#748B75) for buttons, links, icons only
+  primary: '#748B75',
+  primaryForeground: '#FFFFFF',
 
-  // Primary colors — Claude clay
-  primary: '#D97757',
-  primaryForeground: '#FAF9F5',
-
-  // Secondary colors
-  secondary: '#E8E6DC',
-  secondaryForeground: '#141413',
+  // Secondary colors — Full #748B75 Dusty Olive Green fill for header & navbar
+  secondary: '#748B75',
+  secondaryForeground: '#FFFFFF',
 
   // Muted colors
-  muted: '#E8E6DC',
-  mutedForeground: '#87867F',
+  muted: '#F3F4F6',
+  mutedForeground: '#6B7280',
 
   // Accent colors
-  accent: '#F0EEE6',
-  accentForeground: '#141413',
+  accent: '#F3F6F3',
+  accentForeground: '#748B75',
 
   // Destructive colors
-  destructive: '#C46686',
-  destructiveForeground: '#FAF9F5',
+  destructive: '#DC2626',
+  destructiveForeground: '#FFFFFF',
 
-  // Border and input
-  border: '#E8E6DC',
-  input: '#E8E6DC',
-  ring: '#D97757',
+  // Border and input — Crisp light hairlines
+  border: '#E5E7EB',
+  input: '#F9FAFB',
+  ring: '#748B75',
 
-  // Text colors
-  text: '#141413',
-  textMuted: '#87867F',
+  // Text colors — High-contrast clean typography
+  text: '#111827',
+  textMuted: '#6B7280',
 
   // Legacy support for existing components
-  tint: '#D97757',
-  icon: '#5E5D59',
-  tabIconDefault: '#B0AEA5',
-  tabIconSelected: '#D97757',
+  tint: '#748B75',
+  icon: '#748B75',
+  tabIconDefault: '#9CA3AF',
+  tabIconSelected: '#748B75',
 
-  // Accent scale
-  blue: '#6A9BCC',
-  green: '#788C5D',
-  red: '#C46686',
-  orange: '#D97757',
-  yellow: '#EBDBBC',
-  pink: '#C46686',
-  purple: '#8B7AB8',
-  teal: '#4A9B9B',
-  indigo: '#6A9BCC',
+  // Accent scale — Disciplined green accents
+  blue: '#748B75',
+  green: '#748B75',
+  red: '#DC2626',
+  orange: '#748B75',
+  yellow: '#92AD94',
+  pink: '#748B75',
+  purple: '#748B75',
+  teal: '#92AD94',
+  indigo: '#748B75',
 
   // Semantic states
-  success: '#788C5D',
-  successForeground: '#FAF9F5',
-  warning: '#D4A27F',
-  warningForeground: '#141413',
-  info: '#6A9BCC',
-  infoForeground: '#FAF9F5',
-  error: '#C46686',
-  errorForeground: '#FAF9F5',
+  success: '#748B75',
+  successForeground: '#FFFFFF',
+  warning: '#748B75',
+  warningForeground: '#111827',
+  info: '#748B75',
+  infoForeground: '#FFFFFF',
+  error: '#DC2626',
+  errorForeground: '#FFFFFF',
 };
 
 const darkColors = {
-  // Base colors
-  background: '#141413',
-  foreground: '#FAF9F5',
+  // Base colors — Sleek Modern Dark
+  background: '#0F1210',
+  foreground: '#F9FAFB',
 
-  // Card colors
-  card: '#1C1C1A',
-  cardForeground: '#FAF9F5',
+  // Card & Popover colors — Elevated Dark Slate
+  card: '#151A16',
+  cardForeground: '#F9FAFB',
+  popover: '#151A16',
+  popoverForeground: '#F9FAFB',
 
-  // Popover colors
-  popover: '#1C1C1A',
-  popoverForeground: '#FAF9F5',
+  // Primary accent — Muted Sage Green (#92AD94)
+  primary: '#92AD94',
+  primaryForeground: '#0F1210',
 
-  // Primary colors — Claude clay
-  primary: '#D97757',
-  primaryForeground: '#FAF9F5',
-
-  // Secondary colors
-  secondary: '#2A2926',
-  secondaryForeground: '#FAF9F5',
+  // Secondary colors — Dark Neutral fill for header/footer
+  secondary: '#161D17',
+  secondaryForeground: '#F9FAFB',
 
   // Muted colors
-  muted: '#2A2926',
-  mutedForeground: '#B0AEA5',
+  muted: '#1A211B',
+  mutedForeground: '#9CA3AF',
 
   // Accent colors
-  accent: '#2A2926',
-  accentForeground: '#FAF9F5',
+  accent: '#1A211B',
+  accentForeground: '#92AD94',
 
   // Destructive colors
-  destructive: '#C46686',
-  destructiveForeground: '#FAF9F5',
+  destructive: '#EF4444',
+  destructiveForeground: '#FFFFFF',
 
-  // Border and input
-  border: '#5E5D59',
-  input: 'rgba(250, 249, 245, 0.12)',
-  ring: '#D97757',
+  // Border and input — Subtle dark hairlines
+  border: '#242F26',
+  input: '#151A16',
+  ring: '#92AD94',
 
   // Text colors
-  text: '#FAF9F5',
-  textMuted: '#B0AEA5',
+  text: '#F9FAFB',
+  textMuted: '#9CA3AF',
 
   // Legacy support for existing components
-  tint: '#D97757',
-  icon: '#B0AEA5',
-  tabIconDefault: '#87867F',
-  tabIconSelected: '#D97757',
+  tint: '#92AD94',
+  icon: '#92AD94',
+  tabIconDefault: '#6B7280',
+  tabIconSelected: '#92AD94',
 
   // Accent scale
-  blue: '#6A9BCC',
-  green: '#788C5D',
-  red: '#C46686',
-  orange: '#D97757',
-  yellow: '#EBDBBC',
-  pink: '#C46686',
-  purple: '#8B7AB8',
-  teal: '#4A9B9B',
-  indigo: '#6A9BCC',
+  blue: '#92AD94',
+  green: '#92AD94',
+  red: '#EF4444',
+  orange: '#92AD94',
+  yellow: '#92AD94',
+  pink: '#92AD94',
+  purple: '#92AD94',
+  teal: '#92AD94',
+  indigo: '#92AD94',
 
   // Semantic states
-  success: '#788C5D',
-  successForeground: '#FAF9F5',
-  warning: '#D4A27F',
-  warningForeground: '#141413',
-  info: '#6A9BCC',
-  infoForeground: '#FAF9F5',
-  error: '#C46686',
-  errorForeground: '#FAF9F5',
+  success: '#92AD94',
+  successForeground: '#0F1210',
+  warning: '#92AD94',
+  warningForeground: '#F9FAFB',
+  info: '#92AD94',
+  infoForeground: '#0F1210',
+  error: '#EF4444',
+  errorForeground: '#FFFFFF',
 };
 
 export const Colors = {

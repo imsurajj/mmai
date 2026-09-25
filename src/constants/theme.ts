@@ -1,6 +1,7 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Minimal & Clean White Theme with Green Accents:
+ * - Background & card fill: Pure White (#FFFFFF)
+ * - Accent color for buttons, links, active tabs & icons: Dusty Olive Green (#748B75)
  */
 
 import '@/global.css';
@@ -9,18 +10,18 @@ import { Platform } from 'react-native';
 
 export const Colors = {
   light: {
-    text: '#141413',
-    background: '#FAF9F5',
-    backgroundElement: '#F0EEE6',
-    backgroundSelected: '#E8E6DC',
-    textSecondary: '#87867F',
+    text: '#111827',
+    background: '#FFFFFF',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#FFFFFF',
+    textSecondary: '#6B7280',
   },
   dark: {
-    text: '#FAF9F5',
-    background: '#141413',
-    backgroundElement: '#1C1C1A',
-    backgroundSelected: '#2A2926',
-    textSecondary: '#B0AEA5',
+    text: '#111827',
+    background: '#FFFFFF',
+    backgroundElement: '#FFFFFF',
+    backgroundSelected: '#FFFFFF',
+    textSecondary: '#6B7280',
   },
 } as const;
 
@@ -28,13 +29,9 @@ export type ThemeColor = keyof typeof Colors.light & keyof typeof Colors.dark;
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

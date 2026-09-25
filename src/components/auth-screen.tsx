@@ -1,8 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { useColor } from '@/hooks/useColor';
-import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
+import { useToast } from '@/components/ui/toast';
+import {
+  signUpDoctor,
+  verifyDoctorOtp,
+  resendDoctorOtp,
+  loginPatientWithSecretKey,
+  requestPatientLoginOtp,
+  verifyPatientLoginOtp,
+  signInDoctor,
+} from '@/lib/supabase';
 import {
   Check,
   ChevronLeft,
@@ -28,7 +36,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-type AuthMode = 'login' | 'select-role' | 'register' | 'verify';
+type AuthMode = 'login' | 'register' | 'verify';
 type UserRole = 'patient' | 'doctor';
 
 type AuthScreenProps = {
@@ -36,7 +44,7 @@ type AuthScreenProps = {
 };
 
 /* Vector Switch Icon */
-function SwitchIcon({ size = 12, color = '#D97757' }: { size?: number; color?: string }) {
+function SwitchIcon({ size = 12, color = '#748B75' }: { size?: number; color?: string }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <Path d="M8 3 4 7l4 4" />
@@ -93,14 +101,14 @@ function FormField({
         style={[
           styles.fieldInputContainer,
           {
-            backgroundColor: 'transparent',
-            borderColor: borderColor,
+            backgroundColor: '#FFFFFF',
+            borderColor: isFocused ? primaryColor : borderColor,
           },
         ]}
         onPress={() => inputRef?.current?.focus()}
       >
         <View style={styles.fieldIconWrap}>
-          <IconComponent size={20} color={mutedColor} />
+          <IconComponent size={18} color={isFocused ? primaryColor : mutedColor} />
         </View>
 
         <TextInput
@@ -161,28 +169,199 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
   const card = useColor('card');
   const border = useColor('border');
   const insets = useSafeAreaInsets();
+  const { success, error } = useToast();
+  const [loading, setLoading] = useState(false);
+  const [isDoctorSignIn, setIsDoctorSignIn] = useState(false);
+  const [verifyTarget, setVerifyTarget] = useState<'doctor' | 'patient'>('patient');
+  const [verifiedPatientEmail, setVerifiedPatientEmail] = useState('');
+  const [enteredSecretKey, setEnteredSecretKey] = useState('');
+  const [demoOtp, setDemoOtp] = useState<string | null>(null);
 
   const isLogin = mode === 'login';
-  const isSelectRole = mode === 'select-role';
   const isRegister = mode === 'register';
   const isVerify = mode === 'verify';
 
-  const toggleRole = () => {
-    setRole((prev) => (prev === 'patient' ? 'doctor' : 'patient'));
-  };
-
   const handleBack = () => {
-    if (isRegister) {
-      setMode('select-role');
-    } else if (isSelectRole) {
+    if (isDoctorSignIn) {
+      setIsDoctorSignIn(false);
+    } else if (isRegister) {
       setMode('login');
+      setIsDoctorSignIn(false);
     } else if (isVerify) {
-      setMode('login');
+      if (verifyTarget === 'patient') {
+        setMode('login');
+      } else {
+        setMode('register');
+      }
     }
   };
 
-  const handleSubmit = () => {
-    onComplete();
+  // Patient Secret Key Verification (Step 1: check code & trigger email OTP via Resend)
+  const handlePatientKeySubmit = async (codeToVerify?: string) => {
+    const code = (codeToVerify || secretKey.join('')).trim();
+    if (code.length < 6) {
+      error('Incomplete Code', 'Please enter all 6 digits of your secret key.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const result = await requestPatientLoginOtp(code);
+      setEnteredSecretKey(code);
+
+      if (result.patient_email) {
+        setVerifyTarget('patient');
+        setVerifiedPatientEmail(result.patient_email);
+        setVerifyCode(Array(6).fill(''));
+        if (result.otp) {
+          setDemoOtp(result.otp);
+        }
+        setMode('verify');
+        success(
+          'Verification Sent!',
+          result.otp
+            ? `Code: ${result.otp} • (Sent to ${result.patient_email})`
+            : `We sent a 6-digit login code to ${result.patient_email}`
+        );
+      } else {
+        // Fallback if patient has no email
+        const session = await loginPatientWithSecretKey(code);
+        success('Welcome Back!', `Logged in as ${session.patient_name}`);
+        onComplete();
+      }
+    } catch (err: any) {
+      error('Access Denied', err.message || 'Invalid or expired secret key.');
+      setSecretKey(Array(6).fill(''));
+      secretKeyRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Doctor Sign Up
+  const handleDoctorSignUp = async () => {
+    if (!name.trim()) {
+      error('Missing Name', 'Please enter your full name.');
+      nameInputRef.current?.focus();
+      return;
+    }
+    if (!email.trim() || !email.includes('@')) {
+      error('Invalid Email', 'Please enter a valid doctor email address.');
+      emailInputRef.current?.focus();
+      return;
+    }
+    if (password.length < 6) {
+      error('Weak Password', 'Password must be at least 6 characters.');
+      passwordInputRef.current?.focus();
+      return;
+    }
+    if (!agreedToTerms) {
+      error('Terms Required', 'Please accept the Terms of Service to create an account.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await signUpDoctor({ email, password, fullName: name });
+      setVerifyTarget('doctor');
+      setVerifyCode(Array(6).fill(''));
+      setMode('verify');
+      success('Verification Sent!', `We sent a 6-digit confirmation code to ${email}`);
+    } catch (err: any) {
+      error('Sign Up Failed', err.message || 'Unable to create doctor account.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Doctor Sign In
+  const handleDoctorSignIn = async () => {
+    if (!email.trim() || !email.includes('@')) {
+      error('Invalid Email', 'Please enter your doctor email address.');
+      emailInputRef.current?.focus();
+      return;
+    }
+    if (!password) {
+      error('Missing Password', 'Please enter your password.');
+      passwordInputRef.current?.focus();
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await signInDoctor({ email, password });
+      success('Welcome Back', 'Doctor login successful.');
+      onComplete();
+    } catch (err: any) {
+      error('Login Failed', err.message || 'Invalid email or password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Email OTP Verification (Doctor confirmation or Patient login OTP)
+  const handleVerifySubmit = async (codeToVerify?: string) => {
+    const code = (codeToVerify || verifyCode.join('')).trim();
+    if (code.length < 6) {
+      error('Incomplete Code', 'Please enter the 6-digit verification code.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      if (verifyTarget === 'patient') {
+        const session = await verifyPatientLoginOtp({
+          secretCode: enteredSecretKey,
+          otpCode: code,
+        });
+        success('Access Granted!', `Welcome, ${session.patient_name}`);
+        onComplete();
+      } else {
+        await verifyDoctorOtp({ email, token: code });
+        success('Verified!', 'Your doctor account is verified.');
+        onComplete();
+      }
+    } catch (err: any) {
+      error('Verification Failed', err.message || 'Invalid or expired verification code.');
+      setVerifyCode(Array(6).fill(''));
+      verifyRefs.current[0]?.focus();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Resend Verification Code
+  const handleResendCode = async () => {
+    try {
+      setLoading(true);
+      if (verifyTarget === 'patient') {
+        if (!enteredSecretKey) {
+          error('Session Expired', 'Please return to login and re-enter your secret key.');
+          return;
+        }
+        const res = await requestPatientLoginOtp(enteredSecretKey);
+        if (res.otp) {
+          setDemoOtp(res.otp);
+        }
+        success(
+          'Code Resent!',
+          res.otp
+            ? `Code: ${res.otp} • (Sent to ${verifiedPatientEmail || 'your email'})`
+            : `A fresh 6-digit login code was sent to ${verifiedPatientEmail || 'your email'}.`
+        );
+      } else {
+        if (!email) {
+          error('No Email Found', 'Please return to sign up and enter your email.');
+          return;
+        }
+        await resendDoctorOtp(email);
+        success('Code Resent!', 'Check your inbox for the fresh 6-digit code.');
+      }
+    } catch (err: any) {
+      error('Resend Failed', err.message || 'Unable to resend verification email.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle secret key digit input
@@ -195,8 +374,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
       secretKeyRefs.current[idx + 1]?.focus();
     }
     if (next.every((d) => d !== '') && idx === 5) {
-      // auto-submit → go to verify screen
-      setMode('verify');
+      handlePatientKeySubmit(next.join(''));
     }
   };
 
@@ -216,7 +394,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
       verifyRefs.current[idx + 1]?.focus();
     }
     if (next.every((d) => d !== '') && idx === 5) {
-      handleSubmit();
+      handleVerifySubmit(next.join(''));
     }
   };
 
@@ -227,28 +405,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
   };
 
   return (
-    <View style={styles.screen}>
-      {/* Background Image filling full page */}
-      <Image
-        source={{
-          uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1200&auto=format&fit=crop',
-        }}
-        style={StyleSheet.absoluteFill}
-        contentFit="cover"
-        transition={300}
-      />
-
-      {/* Atmospheric Dark Gradient Scrim across full screen */}
-      <LinearGradient
-        colors={[
-          'rgba(13, 15, 18, 0.78)',
-          'rgba(13, 15, 18, 0.90)',
-          '#0D0F12',
-        ]}
-        locations={[0, 0.5, 0.9]}
-        style={StyleSheet.absoluteFill}
-      />
-
+    <View style={[styles.screen, { backgroundColor: '#FFFFFF' }]}>
       <KeyboardAvoidingView
         style={styles.keyboardContainer}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -274,8 +431,8 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
           {/* TOP SECTION: BACK BUTTON & SWITCHER                      */}
           {/* ======================================================== */}
           <View style={styles.topNavBar}>
-            {/* Left: Back button if in role selection or register */}
-            {!isLogin ? (
+            {/* Left: Back button if in register, verify, or doctor sign in */}
+            {!isLogin || isDoctorSignIn ? (
               <Pressable
                 onPress={handleBack}
                 hitSlop={12}
@@ -291,37 +448,13 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
               <View style={styles.navPlaceholder} />
             )}
 
-            {/* Right: Switcher Badge or Mode Switch */}
-            {isRegister ? (
-              <Pressable
-                style={[
-                  styles.topRightRoleBadge,
-                  {
-                    backgroundColor: primary + '18',
-                    borderColor: primary + '40',
-                  },
-                ]}
-                onPress={toggleRole}
-                hitSlop={8}
-              >
-                {role === 'patient' ? (
-                  <User size={13} color={primary} />
-                ) : (
-                  <Heart size={13} color={primary} />
-                )}
-                <Text style={[styles.topRightRoleText, { color: primary }]}>
-                  {role === 'patient' ? 'Patient' : 'Doctor'}
-                </Text>
-                <SwitchIcon size={12} color={primary} />
-              </Pressable>
-            ) : isSelectRole ? (
-              <Pressable onPress={() => setMode('login')} hitSlop={8}>
-                <Text style={[styles.navSwitchLink, { color: primary }]}>Sign in</Text>
-              </Pressable>
-            ) : (
-              <Pressable onPress={() => setMode('select-role')} hitSlop={8}>
+            {/* Right: sign-up on login only */}
+            {isLogin ? (
+              <Pressable onPress={() => setMode('register')} hitSlop={8}>
                 <Text style={[styles.navSwitchLink, { color: primary }]}>Sign up</Text>
               </Pressable>
+            ) : (
+              <View style={styles.navPlaceholder} />
             )}
           </View>
 
@@ -331,179 +464,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
           {/* ======================================================== */}
           {/* ALL OPTIONS BELOW DIVIDER                                */}
           {/* ======================================================== */}
-          {isSelectRole ? (
-            /* STEP 1: PRE-SIGNUP ROLE SELECTION */
-            <Animated.View entering={FadeInDown.duration(350)} style={styles.fullPageContainer}>
-              <View style={styles.headerWrap}>
-                <View style={styles.badgePill}>
-                  <Text style={[styles.badgeText, { color: primary }]}>
-                    STEP 1 OF 2 • PROFILE
-                  </Text>
-                </View>
-
-                <Text style={[styles.headerTitle, { color: text }]}>
-                  Choose your role
-                </Text>
-
-                <Text style={[styles.headerSubtitle, { color: muted }]}>
-                  Select how you plan to use MMAI to personalize your experience
-                </Text>
-              </View>
-
-              {/* Role Selection Cards (Logo on left, profile name directly at right of logo, no numbering) */}
-              <View style={styles.roleCardsContainer}>
-                {/* Option: Patient */}
-                <Pressable
-                  style={[
-                    styles.roleCardBig,
-                    {
-                      backgroundColor: card,
-                      borderColor: role === 'patient' ? primary : border,
-                      borderWidth: role === 'patient' ? 2 : 1,
-                    },
-                  ]}
-                  onPress={() => setRole('patient')}
-                >
-                  <View style={styles.roleCardHeaderRow}>
-                    {/* Logo on left */}
-                    <View
-                      style={[
-                        styles.roleCardIconCircle,
-                        {
-                          backgroundColor:
-                            role === 'patient' ? primary + '25' : border + '30',
-                        },
-                      ]}
-                    >
-                      <User
-                        size={22}
-                        color={role === 'patient' ? primary : muted}
-                      />
-                    </View>
-
-                    {/* Profile Name at right of logo (NO NUMBERING) */}
-                    <View style={styles.roleCardTitleWrap}>
-                      <Text
-                        style={[
-                          styles.roleCardTitle,
-                          { color: role === 'patient' ? primary : text },
-                        ]}
-                      >
-                        Patient
-                      </Text>
-                      <Text style={[styles.roleCardTypeTag, { color: muted }]}>
-                        Personal Health & Recovery
-                      </Text>
-                    </View>
-
-                    {/* Radio indicator on far right */}
-                    <View
-                      style={[
-                        styles.roleRadioCircle,
-                        {
-                          borderColor: role === 'patient' ? primary : border,
-                          backgroundColor:
-                            role === 'patient' ? primary : 'transparent',
-                        },
-                      ]}
-                    >
-                      {role === 'patient' && <Check size={12} color="#FAF9F5" />}
-                    </View>
-                  </View>
-
-                  <Text style={[styles.roleCardDesc, { color: muted }]}>
-                    Track recovery, log daily vitals, and optimize personal athletic performance.
-                  </Text>
-                </Pressable>
-
-                {/* Option: Doctor or Caretaker */}
-                <Pressable
-                  style={[
-                    styles.roleCardBig,
-                    {
-                      backgroundColor: card,
-                      borderColor: role === 'doctor' ? primary : border,
-                      borderWidth: role === 'doctor' ? 2 : 1,
-                    },
-                  ]}
-                  onPress={() => setRole('doctor')}
-                >
-                  <View style={styles.roleCardHeaderRow}>
-                    {/* Logo on left */}
-                    <View
-                      style={[
-                        styles.roleCardIconCircle,
-                        {
-                          backgroundColor:
-                            role === 'doctor' ? primary + '25' : border + '30',
-                        },
-                      ]}
-                    >
-                      <Heart
-                        size={22}
-                        color={role === 'doctor' ? primary : muted}
-                      />
-                    </View>
-
-                    {/* Profile Name at right of logo (NO NUMBERING) */}
-                    <View style={styles.roleCardTitleWrap}>
-                      <Text
-                        style={[
-                          styles.roleCardTitle,
-                          { color: role === 'doctor' ? primary : text },
-                        ]}
-                      >
-                        Doctor or Caretaker
-                      </Text>
-                      <Text style={[styles.roleCardTypeTag, { color: muted }]}>
-                        Clinical Care & Monitoring
-                      </Text>
-                    </View>
-
-                    {/* Radio indicator on far right */}
-                    <View
-                      style={[
-                        styles.roleRadioCircle,
-                        {
-                          borderColor: role === 'doctor' ? primary : border,
-                          backgroundColor:
-                            role === 'doctor' ? primary : 'transparent',
-                        },
-                      ]}
-                    >
-                      {role === 'doctor' && <Check size={12} color="#FAF9F5" />}
-                    </View>
-                  </View>
-
-                  <Text style={[styles.roleCardDesc, { color: muted }]}>
-                    Monitor patient metrics, review clinical recovery logs, and guide care plans.
-                  </Text>
-                </Pressable>
-              </View>
-
-              {/* Continue Button to Signup Form */}
-              <Button
-                variant="default"
-                size="lg"
-                onPress={() => setMode('register')}
-                style={styles.primaryButton}
-              >
-                {role === 'patient' ? 'Continue as Patient' : 'Continue as Doctor/Caretaker'}
-              </Button>
-
-              {/* Footer Switch */}
-              <View style={styles.footerRow}>
-                <Text style={[styles.footerText, { color: muted }]}>
-                  Already have an account?{' '}
-                </Text>
-                <Pressable onPress={() => setMode('login')} hitSlop={8}>
-                  <Text style={[styles.footerLink, { color: primary }]}>
-                    Sign in
-                  </Text>
-                </Pressable>
-              </View>
-            </Animated.View>
-          ) : isVerify ? (
+          {isVerify ? (
             /* VERIFY: Email OTP Screen */
             <Animated.View entering={FadeInDown.duration(350)} style={styles.fullPageContainer}>
               <View style={styles.headerWrap}>
@@ -512,7 +473,13 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
                 </View>
                 <Text style={[styles.headerTitle, { color: text }]}>Check your email</Text>
                 <Text style={[styles.headerSubtitle, { color: muted }]}>
-                  We sent a 6-digit code to your registered email address. Enter it below to continue.
+                  We sent a 6-digit code to{' '}
+                  <Text style={{ color: text, fontWeight: '700' }}>
+                    {verifyTarget === 'patient'
+                      ? verifiedPatientEmail || 'your registered email address'
+                      : email || 'your registered email address'}
+                  </Text>
+                  . Enter it below to continue.
                 </Text>
               </View>
 
@@ -541,16 +508,29 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
                 ))}
               </View>
 
+              {demoOtp && verifyTarget === 'patient' && (
+                <View style={styles.demoBadge}>
+                  <Text style={[styles.demoBadgeText, { color: muted }]}>
+                    Login Code: <Text style={{ color: primary, fontWeight: '700', fontFamily: 'monospace' }}>{demoOtp}</Text>
+                  </Text>
+                </View>
+              )}
+
               <Button
                 variant="default"
                 size="lg"
-                onPress={handleSubmit}
+                loading={loading}
+                onPress={() => handleVerifySubmit()}
                 style={[styles.primaryButton, { marginTop: 32 }]}
               >
                 Verify & Continue
               </Button>
 
-              <Pressable style={[styles.guestButton, { marginTop: 16 }]} hitSlop={8}>
+              <Pressable
+                style={[styles.guestButton, { marginTop: 16 }]}
+                onPress={handleResendCode}
+                hitSlop={8}
+              >
                 <Text style={[styles.forgotText, { color: primary }]}>Resend code</Text>
               </Pressable>
             </Animated.View>
@@ -559,68 +539,161 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
             <View style={styles.fullPageContainer}>
               <Animated.View entering={FadeInDown.duration(350)} style={styles.headerWrap}>
                 <View style={styles.badgePill}>
-                  <Text style={[styles.badgeText, { color: primary }]}>MMAI WORKSPACE</Text>
+                  <Text style={[styles.badgeText, { color: primary }]}>
+                    {isRegister ? 'AS DOCTOR' : isDoctorSignIn ? 'AS DOCTOR' : 'AS PATIENT'}
+                  </Text>
                 </View>
                 <Text style={[styles.headerTitle, { color: text }]}>
-                  {isLogin ? 'Enter your secret key' : 'Create your account'}
+                  {isRegister
+                    ? 'Create your account'
+                    : isDoctorSignIn
+                    ? 'Doctor Workspace'
+                    : 'Enter your secret key'}
                 </Text>
                 <Text style={[styles.headerSubtitle, { color: muted }]}>
-                  {isLogin
-                    ? 'Enter the 6-digit access code provided by your caretaker'
-                    : 'Enter your credentials to set up your account'}
+                  {isRegister
+                    ? 'Enter your credentials to set up your doctor account'
+                    : isDoctorSignIn
+                    ? 'Sign in with your doctor credentials to access your workspace'
+                    : 'Enter the 6-digit access code provided by your caretaker'}
                 </Text>
               </Animated.View>
 
               <View style={styles.formContent}>
                 {isLogin ? (
-                  /* ── 8-digit secret key OTP ── */
-                  <View>
-                    <Text style={[styles.otpLabel, { color: muted }]}>Secret Key</Text>
-                    <View style={styles.otpRow}>
-                      {secretKey.map((digit, idx) => (
-                        <TextInput
-                          key={idx}
-                          ref={(r) => { secretKeyRefs.current[idx] = r; }}
-                          value={digit}
-                          onChangeText={(v) => handleSecretKeyChange(v, idx)}
-                          onKeyPress={({ nativeEvent }) => handleSecretKeyBackspace(nativeEvent.key, idx)}
-                          keyboardType="number-pad"
-                          maxLength={1}
-                          selectTextOnFocus
-                          style={[
-                            styles.otpBox,
-                            {
-                              color: text,
-                              borderColor: border,
-                              backgroundColor: 'transparent',
-                            },
-                          ]}
-                          placeholderTextColor={muted + '60'}
-                          placeholder="·"
-                        />
-                      ))}
-                    </View>
+                  /* ── Login screen ── */
+                  !isDoctorSignIn ? (
+                    /* Patient Secret Key Login */
+                    <View>
+                      <Text style={[styles.otpLabel, { color: muted }]}>Secret Key</Text>
+                      <View style={styles.otpRow}>
+                        {secretKey.map((digit, idx) => (
+                          <TextInput
+                            key={idx}
+                            ref={(r) => { secretKeyRefs.current[idx] = r; }}
+                            value={digit}
+                            onChangeText={(v) => handleSecretKeyChange(v, idx)}
+                            onKeyPress={({ nativeEvent }) => handleSecretKeyBackspace(nativeEvent.key, idx)}
+                            keyboardType="number-pad"
+                            maxLength={1}
+                            selectTextOnFocus
+                            style={[
+                              styles.otpBox,
+                              {
+                                color: text,
+                                borderColor: border,
+                                backgroundColor: 'transparent',
+                              },
+                            ]}
+                            placeholderTextColor={muted + '60'}
+                            placeholder="·"
+                          />
+                        ))}
+                      </View>
 
-                    <Button
-                      variant="default"
-                      size="lg"
-                      onPress={() => setMode('verify')}
-                      style={[styles.primaryButton, { marginTop: 32 }]}
-                    >
-                      Continue
-                    </Button>
+                      <Button
+                        variant="default"
+                        size="lg"
+                        loading={loading}
+                        onPress={() => handlePatientKeySubmit()}
+                        style={[styles.primaryButton, { marginTop: 32 }]}
+                      >
+                        Continue
+                      </Button>
 
-                    <View style={styles.footerRow}>
-                      <Text style={[styles.footerText, { color: muted }]}>Don't have an account? </Text>
-                      <Pressable onPress={() => setMode('select-role')} hitSlop={8}>
-                        <Text style={[styles.footerLink, { color: primary }]}>Sign up</Text>
+                      <Pressable
+                        style={styles.switchRoleButton}
+                        onPress={() => setIsDoctorSignIn(true)}
+                        hitSlop={8}
+                      >
+                        <Text style={[styles.switchRoleText, { color: primary }]}>
+                          Doctor? Sign in with email
+                        </Text>
+                      </Pressable>
+
+                      <View style={styles.footerRow}>
+                        <Text style={[styles.footerText, { color: muted }]}>Don't have an account? </Text>
+                        <Pressable onPress={() => { setMode('register'); setIsDoctorSignIn(false); }} hitSlop={8}>
+                          <Text style={[styles.footerLink, { color: primary }]}>Sign up</Text>
+                        </Pressable>
+                      </View>
+
+                      <Pressable style={styles.guestButton} onPress={onComplete} hitSlop={8}>
+                        <Text style={[styles.guestText, { color: muted }]}>Skip & continue as guest</Text>
                       </Pressable>
                     </View>
+                  ) : (
+                    /* Doctor Email & Password Sign In */
+                    <View style={styles.formFields}>
+                      <FormField
+                        inputRef={emailInputRef}
+                        label="Doctor Email"
+                        placeholder="doctor@mmai.health"
+                        value={email}
+                        onChangeText={setEmail}
+                        icon={Mail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        returnKeyType="next"
+                        onSubmitEditing={() => passwordInputRef.current?.focus()}
+                        rightAction={
+                          email ? (
+                            <Pressable onPress={() => setEmail('')} hitSlop={8}>
+                              <X size={16} color={muted} />
+                            </Pressable>
+                          ) : null
+                        }
+                      />
 
-                    <Pressable style={styles.guestButton} onPress={onComplete} hitSlop={8}>
-                      <Text style={[styles.guestText, { color: muted }]}>Skip & continue as guest</Text>
-                    </Pressable>
-                  </View>
+                      <FormField
+                        inputRef={passwordInputRef}
+                        label="Password"
+                        placeholder="••••••••••••"
+                        value={password}
+                        onChangeText={setPassword}
+                        icon={Lock}
+                        secureTextEntry={!showPassword}
+                        returnKeyType="done"
+                        onSubmitEditing={handleDoctorSignIn}
+                        rightAction={
+                          <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={8}>
+                            {showPassword ? <EyeOff size={18} color={muted} /> : <Eye size={18} color={muted} />}
+                          </Pressable>
+                        }
+                      />
+
+                      <Button
+                        variant="default"
+                        size="lg"
+                        loading={loading}
+                        onPress={handleDoctorSignIn}
+                        style={[styles.primaryButton, { marginTop: 12 }]}
+                      >
+                        Sign In as Doctor
+                      </Button>
+
+                      <Pressable
+                        style={styles.switchRoleButton}
+                        onPress={() => setIsDoctorSignIn(false)}
+                        hitSlop={8}
+                      >
+                        <Text style={[styles.switchRoleText, { color: primary }]}>
+                          Patient? Sign in with secret key
+                        </Text>
+                      </Pressable>
+
+                      <View style={styles.footerRow}>
+                        <Text style={[styles.footerText, { color: muted }]}>Don't have an account? </Text>
+                        <Pressable onPress={() => { setMode('register'); setIsDoctorSignIn(false); }} hitSlop={8}>
+                          <Text style={[styles.footerLink, { color: primary }]}>Sign up</Text>
+                        </Pressable>
+                      </View>
+
+                      <Pressable style={styles.guestButton} onPress={onComplete} hitSlop={8}>
+                        <Text style={[styles.guestText, { color: muted }]}>Skip & continue as guest</Text>
+                      </Pressable>
+                    </View>
+                  )
                 ) : (
                   /* ── Register form ── */
                   <View style={styles.formFields}>
@@ -674,7 +747,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
                       icon={Lock}
                       secureTextEntry={!showPassword}
                       returnKeyType="done"
-                      onSubmitEditing={handleSubmit}
+                      onSubmitEditing={handleDoctorSignUp}
                       rightAction={
                         <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={8}>
                           {showPassword ? <EyeOff size={18} color={muted} /> : <Eye size={18} color={muted} />}
@@ -700,24 +773,25 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
                       </View>
                       <Text style={[styles.termsText, { color: muted }]}>
                         I agree to the{' '}
-                        <Text style={{ color: primary, fontWeight: '500', fontSize: 12 }}>Terms of Service</Text>{' '}
+                        <Text style={{ color: primary, fontWeight: '500', fontSize: 13 }}>Terms of Service</Text>{' '}
                         and{' '}
-                        <Text style={{ color: primary, fontWeight: '500', fontSize: 12 }}>Privacy Policy</Text>
+                        <Text style={{ color: primary, fontWeight: '500', fontSize: 13 }}>Privacy Policy</Text>
                       </Text>
                     </Pressable>
 
                     <Button
                       variant="default"
                       size="lg"
-                      onPress={handleSubmit}
+                      loading={loading}
+                      onPress={handleDoctorSignUp}
                       style={styles.primaryButton}
                     >
-                      {`Sign Up as ${role === 'patient' ? 'Patient' : 'Doctor'}`}
+                      Sign Up
                     </Button>
 
                     <View style={styles.footerRow}>
                       <Text style={[styles.footerText, { color: muted }]}>Already have an account? </Text>
-                      <Pressable onPress={() => setMode('login')} hitSlop={8}>
+                      <Pressable onPress={() => { setMode('login'); setIsDoctorSignIn(true); }} hitSlop={8}>
                         <Text style={[styles.footerLink, { color: primary }]}>Sign in</Text>
                       </Pressable>
                     </View>
@@ -739,7 +813,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#0D0F12',
+    backgroundColor: '#FFFFFF',
   },
   keyboardContainer: {
     flex: 1,
@@ -749,7 +823,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 32,
+    paddingHorizontal: 28,
   },
   fullPageContainer: {
     width: '100%',
@@ -762,7 +836,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 6,
     minHeight: 38,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   navBackButton: {
     flexDirection: 'row',
@@ -772,8 +846,8 @@ const styles = StyleSheet.create({
     paddingRight: 10,
   },
   navBackText: {
-    fontSize: 15,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   navPlaceholder: {
     width: 60,
@@ -783,20 +857,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     paddingVertical: 4,
   },
-  topRightRoleBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    gap: 6,
-  },
-  topRightRoleText: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
   navDivider: {
     height: 1,
     width: '100%',
@@ -805,18 +865,20 @@ const styles = StyleSheet.create({
 
   /* ---------------- Header ---------------- */
   headerWrap: {
-    marginBottom: 18,
+    marginBottom: 22,
   },
   badgePill: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 6,
-    backgroundColor: 'rgba(217, 119, 87, 0.15)',
-    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    backgroundColor: '#FFFFFF',
+    marginBottom: 10,
   },
   badgeText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '800',
     letterSpacing: 1.2,
   },
@@ -824,59 +886,11 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: '800',
     letterSpacing: -0.4,
-    marginBottom: 4,
+    marginBottom: 6,
   },
   headerSubtitle: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-
-  /* ---------------- Role Selection Cards (Step 1) ---------------- */
-  roleCardsContainer: {
-    gap: 14,
-    marginBottom: 24,
-  },
-  roleCardBig: {
-    padding: 16,
-    borderRadius: 18,
-  },
-  roleCardHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  roleCardIconCircle: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  roleCardTitleWrap: {
-    flex: 1,
-  },
-  roleCardTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  roleCardTypeTag: {
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  roleRadioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 8,
-  },
-  roleCardDesc: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   /* ---------------- Form Content ---------------- */
@@ -890,7 +904,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   fieldLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 6,
     letterSpacing: 0.2,
@@ -898,10 +912,11 @@ const styles = StyleSheet.create({
   fieldInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    borderRadius: 16,
+    paddingHorizontal: 14,
+    borderRadius: 8,
     borderWidth: 1,
-    height: 52,
+    height: 50,
+    backgroundColor: '#FFFFFF',
   },
   fieldIconWrap: {
     marginRight: 12,
@@ -917,50 +932,36 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   fieldRightWrap: {
-    marginLeft: 10,
+    marginLeft: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
 
-  /* ---------------- Meta Row ---------------- */
-  metaRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 20,
-  },
-  rememberMeWrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  /* ---------------- Checkbox & Terms ---------------- */
   checkbox: {
     width: 20,
     height: 20,
-    borderRadius: 6,
+    borderRadius: 5,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  metaLabel: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  forgotText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   termsAgreementWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 10,
-    marginBottom: 20,
+    marginTop: 4,
+    marginBottom: 10,
   },
-  /* ---------------- OTP Boxes ---------------- */
+  termsText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 19,
+  },
+
+  /* ---------------- OTP Boxes (Minimal White) ---------------- */
   otpLabel: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     marginBottom: 12,
     letterSpacing: 0.2,
@@ -973,32 +974,24 @@ const styles = StyleSheet.create({
   otpBox: {
     flex: 1,
     aspectRatio: 1,
-    borderWidth: 1.5,
-    borderRadius: 14,
+    borderWidth: 1,
+    borderRadius: 8,
     textAlign: 'center',
     textAlignVertical: 'center',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     padding: 0,
-  },
-  termsText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 18,
+    backgroundColor: '#FFFFFF',
   },
 
-  /* ---------------- Primary CTA ---------------- */
+  /* ---------------- Primary CTA Button ---------------- */
   primaryButton: {
-    height: 54,
-    borderRadius: 27,
+    height: 50,
+    borderRadius: 8,
     width: '100%',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 4,
   },
 
-  /* ---------------- Footer ---------------- */
+  /* ---------------- Links & Footer ---------------- */
   footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1014,10 +1007,39 @@ const styles = StyleSheet.create({
   },
   guestButton: {
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 14,
   },
   guestText: {
-    fontSize: 13,
+    fontSize: 14,
     textDecorationLine: 'underline',
+  },
+  switchRoleButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    paddingVertical: 4,
+  },
+  switchRoleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    letterSpacing: 0.2,
+  },
+  forgotText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  demoBadge: {
+    marginTop: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    alignSelf: 'center',
+  },
+  demoBadgeText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
