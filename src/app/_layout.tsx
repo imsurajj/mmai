@@ -11,6 +11,7 @@ import { useColorScheme } from '@/hooks/useColorScheme';
 import { ModeProvider } from '@/providers/mode-provider';
 import { Colors } from '@/theme/colors';
 import { ToastProvider } from '@/components/ui/toast';
+import { ChipProvider } from '@/components/ui/bottom-chip';
 import { getActiveSessionUser } from '@/lib/supabase';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -68,7 +69,9 @@ export default function TabLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <ModeProvider defaultMode="light">
         <ToastProvider>
-          <AppShell />
+          <ChipProvider>
+            <AppShell />
+          </ChipProvider>
         </ToastProvider>
       </ModeProvider>
     </GestureHandlerRootView>

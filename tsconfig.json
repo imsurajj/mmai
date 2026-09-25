@@ -3,34 +3,14 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/components/ui/*": [
-        "./components/ui/*"
-      ],
-      "@/components/charts/*": [
-        "./components/charts/*"
-      ],
-      "@/theme/*": [
-        "./theme/*"
-      ],
-      "@/providers/*": [
-        "./providers/*"
-      ],
-      "@/hooks/*": [
-        "./hooks/*",
-        "./src/hooks/*"
-      ],
-      "@/assets/*": [
-        "./assets/*"
-      ],
-      "@/*": [
-        "./src/*"
-      ]
+      "@/components/ui/*": ["./components/ui/*", "./src/components/ui/*"],
+      "@/components/charts/*": ["./components/charts/*"],
+      "@/theme/*": ["./theme/*"],
+      "@/providers/*": ["./providers/*"],
+      "@/hooks/*": ["./hooks/*", "./src/hooks/*"],
+      "@/assets/*": ["./assets/*"],
+      "@/*": ["./src/*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }
