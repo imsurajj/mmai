@@ -1,0 +1,11 @@
+{
+  "name": "expo-module-scripts",
+  "version": "56.0.3",
+  "description": "Local tsconfig stubs so Expo packages resolve in the editor",
+  "main": "index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    "./tsconfig.*": "./tsconfig.*.json",
+    "./tsconfig": "./tsconfig.json"
+  }
+}

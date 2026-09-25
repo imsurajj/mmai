@@ -1,0 +1,14 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["es2023"],
+    "target": "es2022",
+    "declaration": true,
+    "declarationMap": false,
+    "inlineSources": false,
+    "resolveJsonModule": true,
+    "module": "nodenext",
+    "moduleResolution": "node16",
+    "verbatimModuleSyntax": false
+  }
+}
