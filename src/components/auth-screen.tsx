@@ -28,7 +28,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path } from 'react-native-svg';
 
-type AuthMode = 'login' | 'select-role' | 'register';
+type AuthMode = 'login' | 'select-role' | 'register' | 'verify';
 type UserRole = 'patient' | 'doctor';
 
 type AuthScreenProps = {
@@ -93,14 +93,14 @@ function FormField({
         style={[
           styles.fieldInputContainer,
           {
-            backgroundColor: cardColor,
-            borderColor: isFocused ? primaryColor : borderColor,
+            backgroundColor: 'transparent',
+            borderColor: borderColor,
           },
         ]}
         onPress={() => inputRef?.current?.focus()}
       >
         <View style={styles.fieldIconWrap}>
-          <IconComponent size={20} color={isFocused ? primaryColor : mutedColor} />
+          <IconComponent size={20} color={mutedColor} />
         </View>
 
         <TextInput
@@ -144,10 +144,16 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
 
+  // 8-digit secret key (login) & 6-digit verify code
+  const [secretKey, setSecretKey] = useState<string[]>(Array(6).fill(''));
+  const [verifyCode, setVerifyCode] = useState<string[]>(Array(6).fill(''));
+
   const scrollViewRef = useRef<ScrollView>(null);
   const emailInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
   const nameInputRef = useRef<TextInput>(null);
+  const secretKeyRefs = useRef<(TextInput | null)[]>(Array(6).fill(null));
+  const verifyRefs = useRef<(TextInput | null)[]>(Array(6).fill(null));
 
   const primary = useColor('primary');
   const text = useColor('text');
@@ -159,6 +165,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
   const isLogin = mode === 'login';
   const isSelectRole = mode === 'select-role';
   const isRegister = mode === 'register';
+  const isVerify = mode === 'verify';
 
   const toggleRole = () => {
     setRole((prev) => (prev === 'patient' ? 'doctor' : 'patient'));
@@ -169,11 +176,54 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
       setMode('select-role');
     } else if (isSelectRole) {
       setMode('login');
+    } else if (isVerify) {
+      setMode('login');
     }
   };
 
   const handleSubmit = () => {
     onComplete();
+  };
+
+  // Handle secret key digit input
+  const handleSecretKeyChange = (val: string, idx: number) => {
+    const digit = val.replace(/[^0-9]/g, '').slice(-1);
+    const next = [...secretKey];
+    next[idx] = digit;
+    setSecretKey(next);
+    if (digit && idx < 5) {
+      secretKeyRefs.current[idx + 1]?.focus();
+    }
+    if (next.every((d) => d !== '') && idx === 5) {
+      // auto-submit → go to verify screen
+      setMode('verify');
+    }
+  };
+
+  const handleSecretKeyBackspace = (key: string, idx: number) => {
+    if (key === 'Backspace' && !secretKey[idx] && idx > 0) {
+      secretKeyRefs.current[idx - 1]?.focus();
+    }
+  };
+
+  // Handle verify code digit input
+  const handleVerifyChange = (val: string, idx: number) => {
+    const digit = val.replace(/[^0-9]/g, '').slice(-1);
+    const next = [...verifyCode];
+    next[idx] = digit;
+    setVerifyCode(next);
+    if (digit && idx < 5) {
+      verifyRefs.current[idx + 1]?.focus();
+    }
+    if (next.every((d) => d !== '') && idx === 5) {
+      handleSubmit();
+    }
+  };
+
+  const handleVerifyBackspace = (key: string, idx: number) => {
+    if (key === 'Backspace' && !verifyCode[idx] && idx > 0) {
+      verifyRefs.current[idx - 1]?.focus();
+    }
   };
 
   return (
@@ -183,7 +233,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
         source={{
           uri: 'https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=1200&auto=format&fit=crop',
         }}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         contentFit="cover"
         transition={300}
       />
@@ -196,7 +246,7 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
           '#0D0F12',
         ]}
         locations={[0, 0.5, 0.9]}
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
       />
 
       <KeyboardAvoidingView
@@ -453,193 +503,230 @@ export function AuthScreen({ onComplete }: AuthScreenProps) {
                 </Pressable>
               </View>
             </Animated.View>
+          ) : isVerify ? (
+            /* VERIFY: Email OTP Screen */
+            <Animated.View entering={FadeInDown.duration(350)} style={styles.fullPageContainer}>
+              <View style={styles.headerWrap}>
+                <View style={styles.badgePill}>
+                  <Text style={[styles.badgeText, { color: primary }]}>VERIFICATION</Text>
+                </View>
+                <Text style={[styles.headerTitle, { color: text }]}>Check your email</Text>
+                <Text style={[styles.headerSubtitle, { color: muted }]}>
+                  We sent a 6-digit code to your registered email address. Enter it below to continue.
+                </Text>
+              </View>
+
+              <View style={styles.otpRow}>
+                {verifyCode.map((digit, idx) => (
+                  <TextInput
+                    key={idx}
+                    ref={(r) => { verifyRefs.current[idx] = r; }}
+                    value={digit}
+                    onChangeText={(v) => handleVerifyChange(v, idx)}
+                    onKeyPress={({ nativeEvent }) => handleVerifyBackspace(nativeEvent.key, idx)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    selectTextOnFocus
+                    style={[
+                      styles.otpBox,
+                      {
+                        color: text,
+                        borderColor: border,
+                        backgroundColor: 'transparent',
+                      },
+                    ]}
+                    placeholderTextColor={muted + '60'}
+                    placeholder="·"
+                  />
+                ))}
+              </View>
+
+              <Button
+                variant="default"
+                size="lg"
+                onPress={handleSubmit}
+                style={[styles.primaryButton, { marginTop: 32 }]}
+              >
+                Verify & Continue
+              </Button>
+
+              <Pressable style={[styles.guestButton, { marginTop: 16 }]} hitSlop={8}>
+                <Text style={[styles.forgotText, { color: primary }]}>Resend code</Text>
+              </Pressable>
+            </Animated.View>
           ) : (
-            /* STEP 2: LOGIN / REGISTER FORMS */
+            /* LOGIN / REGISTER FORMS */
             <View style={styles.fullPageContainer}>
-              {/* Form Title & Subtitle */}
               <Animated.View entering={FadeInDown.duration(350)} style={styles.headerWrap}>
                 <View style={styles.badgePill}>
-                  <Text style={[styles.badgeText, { color: primary }]}>
-                    MMAI WORKSPACE
-                  </Text>
+                  <Text style={[styles.badgeText, { color: primary }]}>MMAI WORKSPACE</Text>
                 </View>
-
                 <Text style={[styles.headerTitle, { color: text }]}>
-                  {isLogin ? 'Login with email address' : 'Create your account'}
+                  {isLogin ? 'Enter your secret key' : 'Create your account'}
                 </Text>
-
                 <Text style={[styles.headerSubtitle, { color: muted }]}>
                   {isLogin
-                    ? 'Enter your credentials to access your dashboard'
+                    ? 'Enter the 6-digit access code provided by your caretaker'
                     : 'Enter your credentials to set up your account'}
                 </Text>
               </Animated.View>
 
-              {/* Form Content */}
               <View style={styles.formContent}>
-                <View style={styles.formFields}>
-                  {/* Full Name (Sign Up only) */}
-                  {isRegister && (
+                {isLogin ? (
+                  /* ── 8-digit secret key OTP ── */
+                  <View>
+                    <Text style={[styles.otpLabel, { color: muted }]}>Secret Key</Text>
+                    <View style={styles.otpRow}>
+                      {secretKey.map((digit, idx) => (
+                        <TextInput
+                          key={idx}
+                          ref={(r) => { secretKeyRefs.current[idx] = r; }}
+                          value={digit}
+                          onChangeText={(v) => handleSecretKeyChange(v, idx)}
+                          onKeyPress={({ nativeEvent }) => handleSecretKeyBackspace(nativeEvent.key, idx)}
+                          keyboardType="number-pad"
+                          maxLength={1}
+                          selectTextOnFocus
+                          style={[
+                            styles.otpBox,
+                            {
+                              color: text,
+                              borderColor: border,
+                              backgroundColor: 'transparent',
+                            },
+                          ]}
+                          placeholderTextColor={muted + '60'}
+                          placeholder="·"
+                        />
+                      ))}
+                    </View>
+
+                    <Button
+                      variant="default"
+                      size="lg"
+                      onPress={() => setMode('verify')}
+                      style={[styles.primaryButton, { marginTop: 32 }]}
+                    >
+                      Continue
+                    </Button>
+
+                    <View style={styles.footerRow}>
+                      <Text style={[styles.footerText, { color: muted }]}>Don't have an account? </Text>
+                      <Pressable onPress={() => setMode('select-role')} hitSlop={8}>
+                        <Text style={[styles.footerLink, { color: primary }]}>Sign up</Text>
+                      </Pressable>
+                    </View>
+
+                    <Pressable style={styles.guestButton} onPress={onComplete} hitSlop={8}>
+                      <Text style={[styles.guestText, { color: muted }]}>Skip & continue as guest</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  /* ── Register form ── */
+                  <View style={styles.formFields}>
+                    {isRegister && (
+                      <FormField
+                        inputRef={nameInputRef}
+                        label="Full Name"
+                        placeholder="Enter your name"
+                        value={name}
+                        onChangeText={setName}
+                        icon={User}
+                        autoCapitalize="words"
+                        returnKeyType="next"
+                        onSubmitEditing={() => emailInputRef.current?.focus()}
+                        rightAction={
+                          name ? (
+                            <Pressable onPress={() => setName('')} hitSlop={8}>
+                              <X size={16} color={muted} />
+                            </Pressable>
+                          ) : null
+                        }
+                      />
+                    )}
+
                     <FormField
-                      inputRef={nameInputRef}
-                      label="Full Name"
-                      placeholder="Enter your name"
-                      value={name}
-                      onChangeText={setName}
-                      icon={User}
-                      autoCapitalize="words"
+                      inputRef={emailInputRef}
+                      label="Email Address"
+                      placeholder="you@example.com"
+                      value={email}
+                      onChangeText={setEmail}
+                      icon={Mail}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
                       returnKeyType="next"
-                      onSubmitEditing={() => emailInputRef.current?.focus()}
+                      onSubmitEditing={() => passwordInputRef.current?.focus()}
                       rightAction={
-                        name ? (
-                          <Pressable onPress={() => setName('')} hitSlop={8}>
+                        email ? (
+                          <Pressable onPress={() => setEmail('')} hitSlop={8}>
                             <X size={16} color={muted} />
                           </Pressable>
                         ) : null
                       }
                     />
-                  )}
 
-                  {/* Email Address */}
-                  <FormField
-                    inputRef={emailInputRef}
-                    label="Email Address"
-                    placeholder="nazariisara@yahoo.com"
-                    value={email}
-                    onChangeText={setEmail}
-                    icon={Mail}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    returnKeyType="next"
-                    onSubmitEditing={() => passwordInputRef.current?.focus()}
-                    rightAction={
-                      email ? (
-                        <Pressable onPress={() => setEmail('')} hitSlop={8}>
-                          <X size={16} color={muted} />
+                    <FormField
+                      inputRef={passwordInputRef}
+                      label="Password"
+                      placeholder="••••••••••••"
+                      value={password}
+                      onChangeText={setPassword}
+                      icon={Lock}
+                      secureTextEntry={!showPassword}
+                      returnKeyType="done"
+                      onSubmitEditing={handleSubmit}
+                      rightAction={
+                        <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={8}>
+                          {showPassword ? <EyeOff size={18} color={muted} /> : <Eye size={18} color={muted} />}
                         </Pressable>
-                      ) : null
-                    }
-                  />
+                      }
+                    />
 
-                  {/* Password */}
-                  <FormField
-                    inputRef={passwordInputRef}
-                    label="Password"
-                    placeholder="••••••••••••"
-                    value={password}
-                    onChangeText={setPassword}
-                    icon={Lock}
-                    secureTextEntry={!showPassword}
-                    returnKeyType="done"
-                    onSubmitEditing={handleSubmit}
-                    rightAction={
-                      <Pressable onPress={() => setShowPassword((p) => !p)} hitSlop={8}>
-                        {showPassword ? (
-                          <EyeOff size={18} color={muted} />
-                        ) : (
-                          <Eye size={18} color={muted} />
-                        )}
-                      </Pressable>
-                    }
-                  />
-                </View>
-
-                {/* Meta row: Remember me & Forgot password (Login) */}
-                {isLogin ? (
-                  <View style={styles.metaRow}>
                     <Pressable
-                      style={styles.rememberMeWrap}
-                      onPress={() => setRememberMe((r) => !r)}
+                      style={styles.termsAgreementWrap}
+                      onPress={() => setAgreedToTerms((a) => !a)}
                       hitSlop={6}
                     >
                       <View
                         style={[
                           styles.checkbox,
                           {
-                            borderColor: rememberMe ? primary : border,
-                            backgroundColor: rememberMe ? primary : 'transparent',
+                            borderColor: agreedToTerms ? primary : border,
+                            backgroundColor: agreedToTerms ? primary : 'transparent',
                           },
                         ]}
                       >
-                        {rememberMe && <Check size={12} color="#FFF" />}
+                        {agreedToTerms && <Check size={12} color="#FFF" />}
                       </View>
-                      <Text style={[styles.metaLabel, { color: muted }]}>Remember me</Text>
-                    </Pressable>
-
-                    <Pressable hitSlop={6}>
-                      <Text style={[styles.forgotText, { color: primary }]}>
-                        Forgot password?
+                      <Text style={[styles.termsText, { color: muted }]}>
+                        I agree to the{' '}
+                        <Text style={{ color: primary, fontWeight: '500', fontSize: 12 }}>Terms of Service</Text>{' '}
+                        and{' '}
+                        <Text style={{ color: primary, fontWeight: '500', fontSize: 12 }}>Privacy Policy</Text>
                       </Text>
                     </Pressable>
-                  </View>
-                ) : (
-                  /* Terms agreement (Sign Up mode) */
-                  <Pressable
-                    style={styles.termsAgreementWrap}
-                    onPress={() => setAgreedToTerms((a) => !a)}
-                    hitSlop={6}
-                  >
-                    <View
-                      style={[
-                        styles.checkbox,
-                        {
-                          borderColor: agreedToTerms ? primary : border,
-                          backgroundColor: agreedToTerms ? primary : 'transparent',
-                        },
-                      ]}
+
+                    <Button
+                      variant="default"
+                      size="lg"
+                      onPress={handleSubmit}
+                      style={styles.primaryButton}
                     >
-                      {agreedToTerms && <Check size={12} color="#FFF" />}
+                      {`Sign Up as ${role === 'patient' ? 'Patient' : 'Doctor'}`}
+                    </Button>
+
+                    <View style={styles.footerRow}>
+                      <Text style={[styles.footerText, { color: muted }]}>Already have an account? </Text>
+                      <Pressable onPress={() => setMode('login')} hitSlop={8}>
+                        <Text style={[styles.footerLink, { color: primary }]}>Sign in</Text>
+                      </Pressable>
                     </View>
-                    <Text style={[styles.termsText, { color: muted }]}>
-                      I agree to the{' '}
-                      <Text style={{ color: primary, fontWeight: '600' }}>Terms of Service</Text>{' '}
-                      and{' '}
-                      <Text style={{ color: primary, fontWeight: '600' }}>Privacy Policy</Text>
-                    </Text>
-                  </Pressable>
+
+                    <Pressable style={styles.guestButton} onPress={onComplete} hitSlop={8}>
+                      <Text style={[styles.guestText, { color: muted }]}>Skip & continue as guest</Text>
+                    </Pressable>
+                  </View>
                 )}
-
-                {/* Primary Action Button */}
-                <Button
-                  variant="default"
-                  size="lg"
-                  onPress={handleSubmit}
-                  style={styles.primaryButton}
-                >
-                  {isLogin ? 'Continue' : `Sign Up as ${role === 'patient' ? 'Patient' : 'Doctor'}`}
-                </Button>
-
-                {/* Switch Mode Footer */}
-                <View style={styles.footerRow}>
-                  <Text style={[styles.footerText, { color: muted }]}>
-                    {isLogin ? "Don't have an account? " : 'Already have an account? '}
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      if (isLogin) {
-                        setMode('select-role');
-                      } else {
-                        setMode('login');
-                      }
-                    }}
-                    hitSlop={8}
-                  >
-                    <Text style={[styles.footerLink, { color: primary }]}>
-                      {isLogin ? 'Sign up' : 'Sign in'}
-                    </Text>
-                  </Pressable>
-                </View>
-
-                {/* Guest option */}
-                <Pressable
-                  style={styles.guestButton}
-                  onPress={onComplete}
-                  hitSlop={8}
-                >
-                  <Text style={[styles.guestText, { color: muted }]}>
-                    Skip & continue as guest
-                  </Text>
-                </Pressable>
               </View>
             </View>
           )}
@@ -662,7 +749,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: 32,
   },
   fullPageContainer: {
     width: '100%',
@@ -870,6 +957,29 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 10,
     marginBottom: 20,
+  },
+  /* ---------------- OTP Boxes ---------------- */
+  otpLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 12,
+    letterSpacing: 0.2,
+  },
+  otpRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  otpBox: {
+    flex: 1,
+    aspectRatio: 1,
+    borderWidth: 1.5,
+    borderRadius: 14,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+    fontSize: 20,
+    fontWeight: '700',
+    padding: 0,
   },
   termsText: {
     flex: 1,
